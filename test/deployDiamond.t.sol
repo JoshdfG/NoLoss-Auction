@@ -97,6 +97,7 @@ contract DiamondDeployer is Test, IDiamondCut {
         boundAuction = AuctionFacet(address(diamond));
     }
 
+    //ERROR/REVERT-TEST-CASE
     function testRevertIfTokenAddressIsZero() public {
         vm.expectRevert("INVALID_CONTRACT_ADDRESS");
         boundAuction.createAuction(address(0), 1, 1e18, 2 days);
@@ -117,6 +118,59 @@ contract DiamondDeployer is Test, IDiamondCut {
         nft.mint();
         vm.expectRevert("INVALID_CLOSE_TIME");
         boundAuction.createAuction(address(nft), 1, 1e18, 1);
+    }
+
+    function testAuctionChange() public {
+        switchSigner(A);
+        nft.mint();
+        nft.approve(address(diamond), 1);
+        boundAuction.createAuction(address(nft), 1, 1e18, 2 days);
+        LibAppStorage.Auction memory new_auction = boundAuction.getAuction(0);
+        assertEq(new_auction.id, 0);
+        assertEq(new_auction.author, A);
+        assertEq(new_auction.tokenId, 1);
+        assertEq(new_auction.closeTime, 2 days);
+        assertEq(new_auction.nftContractAddress, address(nft));
+    }
+
+    function testRevertTimeStampExceded() public {
+        switchSigner(A);
+        nft.mint();
+        nft.approve(address(diamond), 1);
+        boundAuction.createAuction(address(nft), 1, 1e18, 2 days);
+        vm.warp(3 days);
+        vm.expectRevert("AUCTION_CLOSED");
+        boundAuction.bid(0, 5e18);
+    }
+
+    function testToRevertOnInsufficientTokenBalance() public {
+        switchSigner(C);
+        nft.mint();
+        nft.approve(address(diamond), 1);
+        boundAuction.createAuction(address(nft), 1, 1e18, 2 days);
+        vm.expectRevert("INSUFFICIENT_BALANCE");
+        boundAuction.bid(0, 5e18);
+    }
+
+    function testRevertIfBidAmountIsLessThanAuctionStartPrice() public {
+        switchSigner(A);
+        nft.mint();
+        nft.approve(address(diamond), 1);
+        boundAuction.createAuction(address(nft), 1, 2e18, 2 days);
+        vm.expectRevert("STARTING_PRICE_MUST_BE_GREATER");
+        boundAuction.bid(0, 1e18);
+    }
+
+    function testRevertIfBidAmountIsLessThanOrEqualToTheLastBiddedAmount()
+        public
+    {
+        switchSigner(A);
+        nft.mint();
+        nft.approve(address(diamond), 1);
+        boundAuction.createAuction(address(nft), 1, 2e18, 2 days);
+        boundAuction.bid(0, 2e18);
+        vm.expectRevert("PRICE_MUST_BE_GREATER_THAN_LAST_BIDDED");
+        boundAuction.bid(0, 1e18);
     }
 
     function mkaddr(string memory name) public returns (address) {
