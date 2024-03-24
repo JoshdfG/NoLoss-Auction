@@ -4,7 +4,7 @@ import {LibDiamond} from "../libraries/LibDiamond.sol";
 import {LibAppStorage} from "../libraries/LibAppStorage.sol";
 import "../interfaces/IERC721.sol";
 
-contract AuctionBidFacet {
+contract AuctionFacet {
     LibAppStorage.Layout internal l;
 
     function createAuction(
@@ -40,8 +40,6 @@ contract AuctionBidFacet {
     function calculatePercentageCut(uint amount) internal pure returns (uint) {
         return (10 * amount) / 100;
     }
-
-    // Function to distribute the tax according to the breakdown
 
     function bid(uint auctionId, uint price) external {
         require(!l.auctions[auctionId].closed, "AUCTION_CLOSED");
