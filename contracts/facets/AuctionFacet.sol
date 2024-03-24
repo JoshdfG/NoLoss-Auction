@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity ^0.8.0;
-import {LibErcStorage} from "../libraries/LibErcStorage"
+import {LibAppStorage} from "../libraries/LibAppStorage.sol";
 import {LibError} from "../libraries/LiError.sol";
 import {FeeCalculator} from "../libraries/LibFeeCalculator.sol";
 
 contract AuctionFaucet {
-  LibErcStorage.Layout internal l;
+  LibAppStorage.Layout internal l;
     ///started here
 
 
     function submitNft(uint _usernftId, uint _userValue, address _contractNft, uint auctionDuration) external{
-      LibErcStorage.NFT.Id = ID;
-      ID = ID + 1;
-      LibErcStorage.NFT storage nft = l.DisplayNftDetails[ID];
+     uint ID_ LibErcStorage.NFT.Id;
+      ID_ = ID_ + 1;
+      LibErcStorage.NFT storage nft = l.DisplayNftDetails[ID_];
       nft.userNftID_ = _usernftId;
       nft.userValue_ = _userValue;
       nft.ownerNft_ = msg.sender;
