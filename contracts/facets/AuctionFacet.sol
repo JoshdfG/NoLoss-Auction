@@ -10,9 +10,9 @@ contract AuctionFaucet {
 
 
     function submitNft(uint _usernftId, uint _userValue, address _contractNft, uint auctionDuration) external{
-     uint ID_ LibErcStorage.NFT.Id;
-      ID_ = ID_ + 1;
-      LibErcStorage.NFT storage nft = l.DisplayNftDetails[ID_];
+      LibAppStorage.NFT.Id =  _ID;
+      _ID = _ID + 1;
+      LibAppStorage.NFT storage nft = l.DisplayNftDetails[ID_];
       nft.userNftID_ = _usernftId;
       nft.userValue_ = _userValue;
       nft.ownerNft_ = msg.sender;
@@ -23,7 +23,7 @@ contract AuctionFaucet {
 function bid(uint _amount, uint _id) external {
     if (block.timestamp > l.auctionEndTime) revert LibError.AUCTION_ALREADY_ENDED();
 
-    LibErcStorage.NFT storage nft = l.DisplayNftDetails[_id];
+    LibAppStorage.NFT storage nft = l.DisplayNftDetails[_id];
 
     // Calculate fees using the helper function
     (uint burnFee, uint daoFee, uint outbidRefund, uint teamFee, uint userFee) = FeeCalculator.calculateFees(_amount);
@@ -38,7 +38,7 @@ function bid(uint _amount, uint _id) external {
 
     // Transfer bid amount plus fees to the contract
     require(
-        LibErcStorage.transferFrom(msg.sender, address(this), _amount + (burnFee + daoFee + outbidRefund + teamFee + userFee)),
+        LibAppStorage.transferFrom(msg.sender, address(this), _amount + (burnFee + daoFee + outbidRefund + teamFee + userFee)),
         "Transfer failed"
     );
 
@@ -59,7 +59,7 @@ function bid(uint _amount, uint _id) external {
 
     sendToLastInteractedAddress(FeeCalculator.userFee);
 
-    emit LibErcStorage.HighestBidIncreased(msg.sender, _amount);
+    emit LibAppStorage.HighestBidIncreased(msg.sender, _amount);
 }
 
 // Burn fee
@@ -96,7 +96,7 @@ function sendToLastInteractedAddress(uint _amount) internal {
 
         l.auctionEnded = true;
 
-        emit LibErcStorage.AuctionEnded(l.highestBidder, l.highestBid);
+        emit LibAppStorage.AuctionEnded(l.highestBidder, l.highestBid);
 
     }
 }
