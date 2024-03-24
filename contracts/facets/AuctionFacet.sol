@@ -1,102 +1,144 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity ^0.8.0;
+
+import {LibDiamond} from "../libraries/LibDiamond.sol";
 import {LibAppStorage} from "../libraries/LibAppStorage.sol";
-import {LibError} from "../libraries/LiError.sol";
-import {FeeCalculator} from "../libraries/LibFeeCalculator.sol";
+import "../interfaces/IERC721.sol";
 
-contract AuctionFaucet {
-  LibAppStorage.Layout internal l;
-    ///started here
+contract AuctionBidFacet {
+    LibAppStorage.Layout internal l;
 
+    function createAuction(
+        address _contractAddress,
+        uint _tokenId,
+        uint _startingPrice,
+        uint _auctionEndTime
+    ) external {
+        require(_contractAddress != address(0), "INVALID_CONTRACT_ADDRESS");
+        require(
+            IERC721(_contractAddress).ownerOf(_tokenId) == msg.sender,
+            "NOT_OWNER"
+        );
+        require(_auctionEndTime > block.timestamp, "INVALID_CLOSE_TIME");
+        IERC721(_contractAddress).transferFrom(
+            msg.sender,
+            address(this),
+            _tokenId
+        );
 
-    function auctionNft(uint _tokenId, uint _price, address _contractNft, uint auctionDuration) external{
-      l.Id =  _ID;
-      _ID = _ID + 1;
-      LibAppStorage.NFT storage nft = l.DisplayNftDetails[ID_];
-      nft.userNftID_ = _tokenId;
-      nft.userValue_ = _price;
-      nft.ownerNft_ = msg.sender;
-      nft.contractAddress =  _contractNft;
-      nft.auctionDuration_ = _auctionDuration;
+        LibAppStorage.Auction memory _newAuction = LibAppStorage.Auction({
+            id: l.auctions.length,
+            author: msg.sender,
+            tokenId: _tokenId,
+            startingPrice: _startingPrice,
+            closeTime: _auctionEndTime,
+            nftContractAddress: _contractAddress,
+            closed: false
+        });
+        l.auctions.push(_newAuction);
     }
 
-function bid(uint _amount, uint _id) external {
-    if (block.timestamp > l.auctionEndTime) revert LibError.AUCTION_ALREADY_ENDED();
+    function calculatePercentageCut(uint amount) internal pure returns (uint) {
+        return (10 * amount) / 100;
+    }
 
-    LibAppStorage.NFT storage nft = l.DisplayNftDetails[_id];
+    // Function to distribute the tax according to the breakdown
+    function distributeTax(
+        uint _tax,
+        address _outbidBidder,
+        address _lastERC20Interactor
+    ) internal {
+        // Calculate each portion of the tax
+        uint toBurn = (_tax * 20) / 100;
+        uint toDAO = (_tax * 20) / 100;
+        uint toOutbidBidder = (_tax * 30) / 100;
+        uint toTeam = (_tax * 20) / 100;
+        uint toInteractor = (_tax * 10) / 100;
 
-    // Calculate fees using the helper function
-    (uint burnFee, uint daoFee, uint outbidRefund, uint teamFee, uint userFee) = FeeCalculator.calculateFees(_amount);
+        // Distribute each portion of the tax
+        LibAppStorage.distributeToBurn(toBurn);
+        LibAppStorage.distributeToDAO(toDAO);
+        LibAppStorage.distributeToOutbidBidder(_outbidBidder, toOutbidBidder);
+        LibAppStorage.distributeToTeam(toTeam);
+        LibAppStorage.distributeToInteractor(
+            _lastERC20Interactor,
+            toInteractor
+        );
+    }
 
-    if (_amount <= l.bid) revert LibError.BID_TOO_LOW();
-    
-    if (_amount <= l.highestBid) revert LibError.BID_NOT_HIGH_ENOUGH(l.highestBid);
+    function bid(uint auctionId, uint price) external {
+        require(!l.auctions[auctionId].closed, "AUCTION_CLOSED");
+        require(
+            block.timestamp < l.auctions[auctionId].closeTime,
+            "AUCTION_CLOSED"
+        );
+        require(l.balances[msg.sender] > price, "INSUFFICIENT_BALANCE");
 
-    // Update highest bidder and bid amount
-    l.highestBidder = msg.sender;
-    l.highestBid = _amount;
+        if (l.bids[auctionId].length == 0) {
+            require(
+                price >= l.auctions[auctionId].startingPrice,
+                "STARTING_PRICE_MUST_BE_GREATER"
+            );
+            LibAppStorage.Bid memory _newBid = LibAppStorage.Bid({
+                author: msg.sender,
+                amount: price,
+                auctionId: auctionId
+            });
+            l.bids[auctionId].push(_newBid);
+        } else {
+            require(
+                price > l.bids[auctionId][l.bids[auctionId].length - 1].amount,
+                "PRICE_MUST_BE_GREATER_THAN_LAST_BIDDED"
+            );
 
-    // Transfer bid amount plus fees to the contract
-    require(
-        LibAppStorage.transferFrom(msg.sender, address(this), _amount + (burnFee + daoFee + outbidRefund + teamFee + userFee)),
-        "Transfer failed"
-    );
+            uint percentageCut = calculatePercentageCut(price);
+            distributeTax(
+                percentageCut,
+                l.bids[auctionId][l.bids[auctionId].length - 1].author,
+                l.lastGuy
+            );
 
-    // Burn fee
-    // Assuming a function burn(uint _amount) to handle the burning
-    burn(FeeCalculator.burnFee);
+            LibAppStorage.Bid memory _newBid = LibAppStorage.Bid({
+                author: msg.sender,
+                amount: price - percentageCut,
+                auctionId: auctionId
+            });
+            l.bids[auctionId].push(_newBid);
+        }
+    }
 
-    // Transfer fee to a random DAO address
-    // Assuming a function sendToRandomDAO(uint _amount) to handle this
-    sendToRandomDAO(FeeCalculator.daoFee);
+    function closeAuction(uint auctionId) external {
+        LibAppStorage.Auction storage auction = l.auctions[auctionId];
 
-    // Refund outbid bidder
-    refundOutbidBidder(l.secondHighestBidder, FeeCalculator.outbidRefund);
+        require(!auction.closed, "AUCTION_CLOSED");
+        require(block.timestamp >= auction.closeTime, "TIME_NOT_REACHED");
+        require(
+            l.bids[auctionId][l.bids[auctionId].length - 1].author ==
+                msg.sender ||
+                auction.author == msg.sender,
+            "YOU_DONT_HAVE_RIGHT"
+        );
+        LibAppStorage.transferFrom(
+            address(this),
+            auction.author,
+            l.bids[auctionId][l.bids[auctionId].length - 1].amount
+        );
 
-    // Send fee to the team wallet
-    // Assuming a function sendToTeamWallet(uint _amount) to handle this
-    sendToTeamWallet(FeeCalculator.teamFee);
+        IERC721(auction.nftContractAddress).transferFrom(
+            address(this),
+            l.bids[auctionId][l.bids[auctionId].length - 1].author,
+            auction.tokenId
+        );
+    }
 
-    sendToLastInteractedAddress(FeeCalculator.userFee);
+    function getAuction(
+        uint auctionId
+    ) external view returns (LibAppStorage.Auction memory) {
+        return l.auctions[auctionId];
+    }
 
-    emit LibAppStorage.HighestBidIncreased(msg.sender, _amount);
-}
-
-// Burn fee
-function burn(uint _amount) internal {
-    token.transfer(address(0), _amount);
-
-}
-
-// Transfer fee to a random DAO address
-function sendToRandomDAO(uint _amount) internal {
-    token.transfer(address(0x), _amount);
-}
-
-// Refund outbid bidder
-function refundOutbidBidder(address _bidder, uint _amount) internal {
-    _bidder.transfer(_amount);
-}
-
-// Send fee to the team wallet
-function sendToTeamWallet(uint _amount) internal {
-    teamWallet.transfer(_amount);
-}
-
-// Send fee to the last address to interact with AUCToken
-function sendToLastInteractedAddress(uint _amount) internal {
-
-}
-
-
-    function endAuction() external {
-        if (block.timestamp < l.auctionEndTime) revert AUCTION_STILL_OPEN();
-
-        if (l.auctionEnded) revert LibError.AUCTION_ALREADY_ENDED();
-
-        l.auctionEnded = true;
-
-        emit LibAppStorage.AuctionEnded(l.highestBidder, l.highestBid);
-
+    function getBid(
+        uint auctionId
+    ) external view returns (LibAppStorage.Bid[] memory) {
+        return l.bids[auctionId];
     }
 }

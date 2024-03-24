@@ -2,14 +2,13 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
+// import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 
 contract ChainBattles is ERC721URIStorage {
     using Strings for uint256;
-    using Counters for Counters.Counter;
-    Counters.Counter private _tokenIds;
+    uint currentTokenId;
 
     mapping(uint256 => uint256) public tokenIdToLevels;
 
@@ -70,21 +69,24 @@ contract ChainBattles is ERC721URIStorage {
     }
 
     function mint() public {
-        _tokenIds.increment();
-        uint256 newItemId = _tokenIds.current();
-        _safeMint(msg.sender, newItemId);
-        tokenIdToLevels[newItemId] = 0;
-        _setTokenURI(newItemId, getTokenURI(newItemId));
+        currentTokenId = currentTokenId + 1;
+
+        // uint256 newItemId = _tokenIds.current();
+        _safeMint(msg.sender, currentTokenId);
+        tokenIdToLevels[currentTokenId] = 0;
+        _setTokenURI(currentTokenId, getTokenURI(currentTokenId));
     }
 
-    function train(uint256 tokenId) public {
-        require(_exists(tokenId), "Please use an existing token");
-        require(
-            ownerOf(tokenId) == msg.sender,
-            "You must own this token to train it"
-        );
-        uint256 currentLevel = tokenIdToLevels[tokenId];
-        tokenIdToLevels[tokenId] = currentLevel + 1;
-        _setTokenURI(tokenId, getTokenURI(tokenId));
-    }
+    // function train(uint256 tokenId) public {
+    //     require(_exists(tokenId), "Please use an existing token");
+    //     require(
+    //         ownerOf(tokenId) == msg.sender,
+    //         "You must own this token to train it"
+    //     );
+    //     uint256 currentLevel = tokenIdToLevels[tokenId];
+    //     tokenIdToLevels[tokenId] = currentLevel + 1;
+    //     _setTokenURI(tokenId, getTokenURI(tokenId));
+    // }
 }
+
+///
