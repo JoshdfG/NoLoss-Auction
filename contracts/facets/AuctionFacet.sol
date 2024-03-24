@@ -99,47 +99,4 @@ function sendToLastInteractedAddress(uint _amount) internal {
         emit LibErcStorage.AuctionEnded(l.highestBidder, l.highestBid);
 
     }
-
-
-    
-    
-
-
-
-    // function initialize(
-    //     uint biddingTime,
-    //     address beneficiaryAddress,
-    //     address _tokenAddress // ERC20 token address
-    // ) external {
-    //     require(l.beneficiary == address(0), "Contract already initialized");
-    //     l.beneficiary = beneficiaryAddress;
-    //     l.auctionEndTime = block.timestamp + biddingTime;
-    //     token = IERC20(_tokenAddress); // Initialize the ERC20 token contract
-    // }
-    // function bid(uint _amount) external {
-    //     if (block.timestamp > l.auctionEndTime) revert AuctionAlreadyEnded();
-    //     if (_amount <= l.highestBid) revert BidNotHighEnough(l.highestBid);
-    //     l.highestBidder = msg.sender;
-    //     l.highestBid = _amount;
-    //     require(
-    //         token.transferFrom(msg.sender, address(this), _amount),
-    //         "Transfer failed"
-    //     );
-    //     emit LibErcStorage.HighestBidIncreased(msg.sender, _amount);
-    // }
-    // function withdraw() external returns (bool) {
-    //     uint amount = l.pendingReturns[msg.sender];
-    //     if (amount > 0) {
-    //         l.pendingReturns[msg.sender] = 0;
-    //         require(token.transfer(msg.sender, amount), "Transfer failed");
-    //     }
-    //     return true;
-    // }
-    // function auctionEnd() external {
-    //     if (block.timestamp < l.auctionEndTime) revert AuctionNotYetEnded();
-    //     if (l.ended) revert AuctionEndAlreadyCalled();
-    //     l.ended = true;
-    //     emit LibErcStorage.AuctionEnded(l.highestBidder, l.highestBid);
-    //     require(token.transfer(l.beneficiary, l.highestBid), "Transfer failed");
-    // }
 }
