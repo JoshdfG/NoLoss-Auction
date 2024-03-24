@@ -105,4 +105,27 @@ library LibAppStorage {
     ) internal {
         LibAppStorage.transferFrom(address(0), _lastERC20Interactor, _amount); // Sending to last ERC20 interactor
     }
+
+    function distributeOutBidFee(
+        uint _tax,
+        address _outbidBidder,
+        address _lastERC20Interactor
+    ) internal {
+        // Calculate each portion of the tax
+        uint toBurn = (_tax * 20) / 100;
+        uint toDAO = (_tax * 20) / 100;
+        uint toOutbidBidder = (_tax * 30) / 100;
+        uint toTeam = (_tax * 20) / 100;
+        uint toInteractor = (_tax * 10) / 100;
+
+        // Distribute each portion of the tax
+        LibAppStorage.distributeToBurn(toBurn);
+        LibAppStorage.distributeToDAO(toDAO);
+        LibAppStorage.distributeToOutbidBidder(_outbidBidder, toOutbidBidder);
+        LibAppStorage.distributeToTeam(toTeam);
+        LibAppStorage.distributeToInteractor(
+            _lastERC20Interactor,
+            toInteractor
+        );
+    }
 }

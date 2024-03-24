@@ -42,28 +42,6 @@ contract AuctionBidFacet {
     }
 
     // Function to distribute the tax according to the breakdown
-    function distributeTax(
-        uint _tax,
-        address _outbidBidder,
-        address _lastERC20Interactor
-    ) internal {
-        // Calculate each portion of the tax
-        uint toBurn = (_tax * 20) / 100;
-        uint toDAO = (_tax * 20) / 100;
-        uint toOutbidBidder = (_tax * 30) / 100;
-        uint toTeam = (_tax * 20) / 100;
-        uint toInteractor = (_tax * 10) / 100;
-
-        // Distribute each portion of the tax
-        LibAppStorage.distributeToBurn(toBurn);
-        LibAppStorage.distributeToDAO(toDAO);
-        LibAppStorage.distributeToOutbidBidder(_outbidBidder, toOutbidBidder);
-        LibAppStorage.distributeToTeam(toTeam);
-        LibAppStorage.distributeToInteractor(
-            _lastERC20Interactor,
-            toInteractor
-        );
-    }
 
     function bid(uint auctionId, uint price) external {
         require(!l.auctions[auctionId].closed, "AUCTION_CLOSED");
@@ -91,7 +69,7 @@ contract AuctionBidFacet {
             );
 
             uint percentageCut = calculatePercentageCut(price);
-            distributeTax(
+            LibAppStorage.distributeOutBidFee(
                 percentageCut,
                 l.bids[auctionId][l.bids[auctionId].length - 1].author,
                 l.lastGuy
