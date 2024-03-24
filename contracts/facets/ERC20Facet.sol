@@ -30,10 +30,20 @@ contract ERC20Facet {
         balance = l.balances[_owner];
     }
 
+    function setLastInteraction() internal {
+        l.lastPersonToInteract = msg.sender;
+        // emit y(msg.sender);
+    }
+
+    function getLastInteraction() external view returns (address) {
+        return l.lastPersonToInteract;
+    }
+
     function transfer(
         address _to,
         uint256 _value
     ) public returns (bool success) {
+        setLastInteraction();
         LibAppStorage.transferFrom(msg.sender, _to, _value);
         success = true;
     }

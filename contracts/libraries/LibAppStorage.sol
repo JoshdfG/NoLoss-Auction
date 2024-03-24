@@ -40,7 +40,7 @@ library LibAppStorage {
         string symbol;
         uint256 totalSupply;
         uint8 decimals;
-        address lastGuy;
+        address lastPersonToInteract;
         mapping(address => uint256) balances;
         mapping(address => mapping(address => uint256)) allowances;
         //STAKING

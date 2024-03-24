@@ -52,8 +52,9 @@ contract AuctionFacet {
         if (l.bids[auctionId].length == 0) {
             require(
                 price >= l.auctions[auctionId].startingPrice,
-                "STARTING_PRICE_MUST_BE_GREATER"
+                "STARTING_PRICE_IS_TOO_LOW_INCREASE_IT!"
             );
+
             LibAppStorage.Bid memory _newBid = LibAppStorage.Bid({
                 author: msg.sender,
                 amount: price,
@@ -63,14 +64,14 @@ contract AuctionFacet {
         } else {
             require(
                 price > l.bids[auctionId][l.bids[auctionId].length - 1].amount,
-                "PRICE_MUST_BE_GREATER_THAN_LAST_BIDDED"
+                "PRICE_MUST_BE_GREATER_THAN_LAST_BID"
             );
 
             uint percentageCut = calculatePercentageCut(price);
             LibAppStorage.distributeOutBidFee(
                 percentageCut,
                 l.bids[auctionId][l.bids[auctionId].length - 1].author,
-                l.lastGuy
+                l.lastPersonToInteract
             );
 
             LibAppStorage.Bid memory _newBid = LibAppStorage.Bid({
@@ -86,12 +87,12 @@ contract AuctionFacet {
         LibAppStorage.Auction storage auction = l.auctions[auctionId];
 
         require(!auction.closed, "AUCTION_CLOSED");
-        require(block.timestamp >= auction.closeTime, "TIME_NOT_REACHED");
+        require(block.timestamp >= auction.closeTime, "TIME_NOT_ELAPSED");
         require(
             l.bids[auctionId][l.bids[auctionId].length - 1].author ==
                 msg.sender ||
                 auction.author == msg.sender,
-            "YOU_DONT_HAVE_RIGHT"
+            "YOU_DONT_HAVE_RIGHT_TO_CLOSE_THE_AUCTION"
         );
         LibAppStorage.transferFrom(
             address(this),

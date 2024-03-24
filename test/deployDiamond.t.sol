@@ -26,6 +26,7 @@ contract DiamondDeployer is Test, IDiamondCut {
     Nft nft;
 
     AuctionFacet boundAuction;
+    ERC20Facet boundERC;
 
     address A = address(0xa);
     address B = address(0xb);
@@ -95,6 +96,7 @@ contract DiamondDeployer is Test, IDiamondCut {
         ERC20Facet(address(diamond)).mintTo(B);
 
         boundAuction = AuctionFacet(address(diamond));
+        boundERC = ERC20Facet(address(diamond));
     }
 
     //ERROR/REVERT-TEST-CASE
@@ -157,7 +159,7 @@ contract DiamondDeployer is Test, IDiamondCut {
         nft.mint();
         nft.approve(address(diamond), 1);
         boundAuction.createAuction(address(nft), 1, 2e18, 2 days);
-        vm.expectRevert("STARTING_PRICE_MUST_BE_GREATER");
+        vm.expectRevert("STARTING_PRICE_IS_TOO_LOW_INCREASE_IT!");
         boundAuction.bid(0, 1e18);
     }
 
@@ -169,8 +171,97 @@ contract DiamondDeployer is Test, IDiamondCut {
         nft.approve(address(diamond), 1);
         boundAuction.createAuction(address(nft), 1, 2e18, 2 days);
         boundAuction.bid(0, 2e18);
-        vm.expectRevert("PRICE_MUST_BE_GREATER_THAN_LAST_BIDDED");
+        vm.expectRevert("PRICE_MUST_BE_GREATER_THAN_LAST_BID");
         boundAuction.bid(0, 1e18);
+    }
+
+    function testRevertIfBidIsCLosed() external {
+        switchSigner(A);
+        nft.mint();
+        nft.approve(address(diamond), 1);
+        boundAuction.createAuction(address(nft), 1, 2e18, 2 days);
+        boundAuction.bid(0, 2e18);
+        vm.expectRevert("TIME_NOT_ELAPSED");
+        boundAuction.closeAuction(0);
+    }
+
+    function testRevertIfSignerHasNoRightTOCloseBid() external {
+        switchSigner(A);
+        nft.mint();
+        nft.approve(address(diamond), 1);
+        boundAuction.createAuction(address(nft), 1, 2e18, 2 days);
+        boundAuction.bid(0, 2e18);
+        switchSigner(B);
+        vm.warp(2 days);
+        vm.expectRevert("YOU_DONT_HAVE_RIGHT_TO_CLOSE_THE_AUCTION");
+        boundAuction.closeAuction(0);
+    }
+
+    function testToConfirmTokenTransferAfterAuctionHasEnded() external {
+        ERC20Facet(address(diamond)).mintTo(C);
+        switchSigner(A);
+        uint oldABalance = boundERC.balanceOf(A);
+        nft.mint();
+        nft.approve(address(diamond), 1);
+        boundAuction.createAuction(address(nft), 1, 2e18, 2 days);
+        switchSigner(B);
+        boundAuction.bid(0, 2e18);
+        switchSigner(C);
+        boundAuction.bid(0, 3e18);
+        vm.warp(2 days);
+        boundAuction.closeAuction(0);
+        assertEq(
+            boundERC.balanceOf(A),
+            oldABalance + (3e18 - ((10 * 3e18) / 100))
+        );
+    }
+
+    //MAIN_FUNCTION_TESTING
+    function testPercentageDductionToEnsureNoLoss() public {
+        uint oldOutbidderBal = boundERC.balanceOf(A);
+        ERC20Facet(address(diamond)).mintTo(C);
+        switchSigner(C);
+        boundERC.transfer(address(0), 1e18);
+        uint oldLastERC20InteractorBal = boundERC.balanceOf(
+            boundERC.getLastInteraction()
+        );
+        switchSigner(A);
+
+        uint oldDaoBal = boundERC.balanceOf(
+            0x42AcD393442A1021f01C796A23901F3852e89Ff3
+        );
+        nft.mint();
+        nft.approve(address(diamond), 1);
+        boundAuction.createAuction(address(nft), 1, 2e18, 2 days);
+        boundAuction.bid(0, 2e18);
+        switchSigner(B);
+        boundAuction.bid(0, 3e18);
+        assertEq(
+            boundERC.balanceOf(0x42AcD393442A1021f01C796A23901F3852e89Ff3),
+            ((2 * 3e18) / 100) + oldDaoBal
+        );
+        assertEq(boundERC.balanceOf(A), ((3 * 3e18) / 100) + oldOutbidderBal);
+        assertEq(boundERC.balanceOf(A), ((3 * 3e18) / 100) + oldOutbidderBal);
+        assertEq(
+            boundERC.balanceOf(boundERC.getLastInteraction()),
+            ((1 * 3e18) / 100) + oldLastERC20InteractorBal
+        );
+    }
+
+    function testBids() public {
+        switchSigner(A);
+        nft.mint();
+        nft.approve(address(diamond), 1);
+        boundAuction.createAuction(address(nft), 1, 2e18, 2 days);
+        boundAuction.bid(0, 2e18);
+        switchSigner(B);
+        boundAuction.bid(0, 3e18);
+        LibAppStorage.Bid[] memory bids = boundAuction.getBid(0);
+        assertEq(bids.length, 2);
+        assertEq(bids[0].author, A);
+        assertEq(bids[0].amount, 2e18);
+        assertEq(bids[1].author, B);
+        assertEq(bids[1].amount, (3e18 - ((10 * 3e18) / 100)));
     }
 
     function mkaddr(string memory name) public returns (address) {
