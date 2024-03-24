@@ -9,12 +9,12 @@ contract AuctionFaucet {
     ///started here
 
 
-    function submitNft(uint _usernftId, uint _userValue, address _contractNft, uint auctionDuration) external{
-      LibAppStorage.NFT.Id =  _ID;
+    function auctionNft(uint _tokenId, uint _price, address _contractNft, uint auctionDuration) external{
+      l.Id =  _ID;
       _ID = _ID + 1;
       LibAppStorage.NFT storage nft = l.DisplayNftDetails[ID_];
-      nft.userNftID_ = _usernftId;
-      nft.userValue_ = _userValue;
+      nft.userNftID_ = _tokenId;
+      nft.userValue_ = _price;
       nft.ownerNft_ = msg.sender;
       nft.contractAddress =  _contractNft;
       nft.auctionDuration_ = _auctionDuration;
